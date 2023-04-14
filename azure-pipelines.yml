@@ -7,12 +7,17 @@ trigger:
 - master
 
 pool:
-  name: 'Default'
+  name: 'default'
 
 variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
+  Major: '1'
+  Minor: '0'
+  revision: $[counter(variables['Minor'], 1)]
+  nugetVersion: '$(Major).$(Minor).$(revision)'
+  nugetProjectName: 'MvcMovie'
 
 steps:
 - task: NuGetToolInstaller@1
@@ -22,13 +27,20 @@ steps:
     restoreSolution: '$(solution)'
 
 - task: VSBuild@1
+  displayName: 'Build solution'
   inputs:
     solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\"'
+    platform: '$(BuildPlatform)'
+    configuration: '$(BuildConfiguration)'
 
-- task: VSTest@2
+- task: DotNetCoreCLI@2
+  displayName: 'Create Nuget Package'
   inputs:
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    command: 'pack'
+    packagesToPack: '**/$(nugetProjectName).csproj'
+    versioningScheme: 'byEnvVar'
+    versionEnvVar: 'nugetVersion'
+    nobuild: true
+    outputDir: '$(Build.ArtifactStagingDirectory)'
+    arguments: '--configuration $(buildConfiguration) /p:PackageVersion=$(nugetVersion)'
